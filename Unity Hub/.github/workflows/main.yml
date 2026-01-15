@@ -1,0 +1,29 @@
+name: Build Android Game
+on: [push, workflow_dispatch]
+jobs:
+  buildAndroid:
+    name: Build for Android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Build Android APK
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: Android
+          projectPath: 'Unity Hub'  # هذا هو التعديل المهم ليعمل مشروعك
+          androidAppBundle: false
+          androidKeystoreName: user
+          androidKeystorePass: ${{ secrets.KEYSTORE_PASS }}
+          androidKeyaliasName: user
+          androidKeyaliasPass: ${{ secrets.KEYALIAS_PASS }}
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FarmGame-APK
+          path: build/Android
