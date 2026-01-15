@@ -1,0 +1,111 @@
+name: Build Android APK 🎮
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      buildName:
+        description: 'Build Name'
+        required: false
+        default: 'RazanYamanFarm'
+
+env:
+  UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+  PROJECT_PATH: Unity Hub
+
+jobs:
+  build-android:
+    name: Build for Android 📱
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+      # Checkout repository
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+      
+      # Cache Library folder for faster builds
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PROJECT_PATH }}/Library
+          key: Library-${{ env.PROJECT_PATH }}-Android-${{ hashFiles('${{ env.PROJECT_PATH }}/Assets/**', '${{ env.PROJECT_PATH }}/Packages/manifest.json', '${{ env.PROJECT_PATH }}/ProjectSettings/ProjectVersion.txt') }}
+          restore-keys: |
+            Library-${{ env.PROJECT_PATH }}-Android-
+            Library-${{ env.PROJECT_PATH }}-
+            Library-
+      
+      # Free up disk space
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          df -h
+      
+      # Build with GameCI Unity Builder
+      - name: Build Android APK
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: ${{ env.PROJECT_PATH }}
+          targetPlatform: Android
+          buildName: ${{ github.event.inputs.buildName || 'RazanYamanFarm' }}
+          androidAppBundle: false
+          androidKeystoreName: user.keystore
+          androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          androidKeyaliasName: ${{ secrets.ANDROID_KEYALIAS_NAME }}
+          androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+          allowDirtyBuild: true
+          customParameters: -Development
+      
+      # Upload APK artifact
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RazanYamanFarm-APK
+          path: build/Android/*.apk
+          retention-days: 14
+          if-no-files-found: error
+      
+      # Create job summary
+      - name: Build Summary
+        run: |
+          echo "## 🎮 Build Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📱 Android APK" >> $GITHUB_STEP_SUMMARY
+          echo "Your APK has been built successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Download:** Go to the **Actions** tab -> Select this run -> Download **RazanYamanFarm-APK** from Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Build Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+
+  # Optional: Notify on completion
+  notify:
+    name: Send Notification
+    needs: build-android
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Notify Build Status
+        run: |
+          if [ "${{ needs.build-android.result }}" == "success" ]; then
+            echo "✅ Build succeeded!"
+          else
+            echo "❌ Build failed!"
+            exit 1
+          fi
