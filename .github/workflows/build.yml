@@ -1,0 +1,15 @@
+name: Build Android
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build APK
+        uses: game-ci/unity-builder@v4
+        with:
+          targetPlatform: Android
+          projectPath: 'Unity Hub'
+          androidAppBundle: false
